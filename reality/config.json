@@ -49,7 +49,9 @@
       },
       "sniffing": {
         "enabled": true,
-        "destOverride": ["tls"],
+        "destOverride": [
+          "tls"
+        ],
         "routeOnly": true
       }
     },
@@ -101,18 +103,55 @@
     {
       "protocol": "blackhole",
       "tag": "blocked"
+    },
+    {
+      "tag": "outbound-home",
+      "protocol": "vless",
+      "settings": {
+        "vnext": [
+          {
+            "address": "xx",
+            "port": 443,
+            "users": [
+              {
+                "id": "xx",
+                "flow": "xtls-rprx-vision",
+                "encryption": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "streamSettings": {
+        "network": "tcp",
+        "security": "reality",
+        "realitySettings": {
+          "serverName": "xx",
+          "fingerprint": "firefox",
+          "publicKey": "xx",
+          "shortId": ""
+        }
+      }
     }
   ],
   "routing": {
     "domainStrategy": "IPIfNonMatch",
     "rules": [
       {
-        "inboundTag": ["dokodemo-in"],
-        "domain": ["xx"],
+        "inboundTag": [
+          "dokodemo-in"
+        ],
+        "domain": [
+          "xx"
+        ],
+        "type": "field",
         "outboundTag": "direct"
       },
       {
-        "inboundTag": ["dokodemo-in"],
+        "inboundTag": [
+          "dokodemo-in"
+        ],
+        "type": "field",
         "outboundTag": "blocked"
       },
       {
@@ -139,6 +178,29 @@
         "outboundTag": "blocked"
       },
       {
+        "protocol": [
+          "bittorrent"
+        ],
+        "type": "field",
+        "outboundTag": "blocked"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "geosite:youtube"
+        ],
+        "outboundTag": "direct"
+      },
+      {
+        "type": "field",
+        "domain": [
+          "geosite:openai",
+          "geosite:anthropic",
+          "geosite:google"
+        ],
+        "outboundTag": "outbound-home"
+      },
+      {
         "type": "field",
         "ip": [
           "geoip:cn",
@@ -147,13 +209,10 @@
         "outboundTag": "blocked"
       },
       {
-        "protocol": [
-          "bittorrent"
-        ],
         "type": "field",
-        "outboundTag": "blocked"
+        "outboundTag": "direct",
+        "port": "0-65535"
       }
     ]
   }
 }
-

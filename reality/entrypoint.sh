@@ -223,6 +223,39 @@ jq \
   | .inbounds[1].streamSettings.realitySettings.privateKey = $private_key
   | .inbounds[1].streamSettings.network = $network' /config.json > /config.json_tmp && mv /config.json_tmp /config.json
 
+# Home broadband outbound injection
+if [ -n "$HOME_IPV4" ] && [ -n "$HOME_UUID" ] && [ -n "$HOME_PUBLICKEY" ]; then
+  HOME_PORT="${HOME_PORT:-443}"
+  HOME_DEST="${HOME_DEST:-www.apple.com:443}"
+  HOME_SERVERNAMES="${HOME_SERVERNAMES:-www.apple.com}"
+  HOME_NETWORK="${HOME_NETWORK:-tcp}"
+  FIRST_HOME_SERVERNAME=$(echo $HOME_SERVERNAMES | awk '{print $1}')
+
+  jq \
+    --arg addr "$HOME_IPV4" \
+    --argjson port "$HOME_PORT" \
+    --arg uuid "$HOME_UUID" \
+    --arg sni "$FIRST_HOME_SERVERNAME" \
+    --arg pbk "$HOME_PUBLICKEY" \
+    --arg network "$HOME_NETWORK" \
+    '(.outbounds[] | select(.tag == "outbound-home")).settings.vnext[0].address = $addr
+    | (.outbounds[] | select(.tag == "outbound-home")).settings.vnext[0].port = $port
+    | (.outbounds[] | select(.tag == "outbound-home")).settings.vnext[0].users[0].id = $uuid
+    | (.outbounds[] | select(.tag == "outbound-home")).streamSettings.realitySettings.serverName = $sni
+    | (.outbounds[] | select(.tag == "outbound-home")).streamSettings.realitySettings.publicKey = $pbk
+    | (.outbounds[] | select(.tag == "outbound-home")).streamSettings.network = $network' \
+    /config.json > /config.json_tmp && mv /config.json_tmp /config.json
+
+  echo "HOME OUTBOUND: enabled -> $HOME_IPV4:$HOME_PORT"
+else
+  # Remove outbound-home and its routing rules when home broadband is not configured
+  jq 'del(.outbounds[] | select(.tag == "outbound-home"))
+    | del(.routing.rules[] | select(.outboundTag == "outbound-home"))' \
+    /config.json > /config.json_tmp && mv /config.json_tmp /config.json
+
+  echo "HOME OUTBOUND: disabled (HOME_IPV4, HOME_UUID, or HOME_PUBLICKEY not set)"
+fi
+
 jq -n \
   --arg uuid "$UUID" \
   --arg private_key "$PRIVATEKEY" \
