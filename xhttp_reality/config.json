@@ -104,7 +104,7 @@
             "id": "xx"
           }
         ],
-        "decryption": "none",
+        "decryption": "xx",
         "fallbacks": []
       },
       "streamSettings": {
