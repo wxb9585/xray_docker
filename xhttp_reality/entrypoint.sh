@@ -13,8 +13,7 @@ STATE_SERVERNAMES=""
 STATE_NETWORK=""
 STATE_EXTERNAL_PORT=""
 STATE_XHTTP_PATH=""
-STATE_VLESSENC_DECRYPTION=""
-STATE_VLESSENC_ENCRYPTION=""
+
 
 LEGACY_INFO_FILE=""
 LEGACY_UUID=""
@@ -31,12 +30,12 @@ load_state() {
     return
   fi
 
-  STATE_VALUES=$(jq -r '[.uuid // "", .private_key // "", .public_key // "", .dest // "", (.servernames // []) | join(" "), .network // "", .external_port // "", .xhttp_path // "", .vlessenc_decryption // "", .vlessenc_encryption // ""] | @tsv' "$STATE_FILE" 2>/dev/null)
+  STATE_VALUES=$(jq -r '[.uuid // "", .private_key // "", .public_key // "", .dest // "", (.servernames // []) | join(" "), .network // "", .external_port // "", .xhttp_path // ""] | @tsv' "$STATE_FILE" 2>/dev/null)
   if [ -z "$STATE_VALUES" ]; then
     return
   fi
 
-  IFS="$(printf '\t')" read -r STATE_UUID STATE_PRIVATEKEY STATE_PUBLICKEY STATE_DEST STATE_SERVERNAMES STATE_NETWORK STATE_EXTERNAL_PORT STATE_XHTTP_PATH STATE_VLESSENC_DECRYPTION STATE_VLESSENC_ENCRYPTION <<EOF_STATE
+  IFS="$(printf '\t')" read -r STATE_UUID STATE_PRIVATEKEY STATE_PUBLICKEY STATE_DEST STATE_SERVERNAMES STATE_NETWORK STATE_EXTERNAL_PORT STATE_XHTTP_PATH <<EOF_STATE
 $STATE_VALUES
 EOF_STATE
 }
@@ -228,27 +227,7 @@ if [ -z "$NETWORK" ]; then
   NETWORK="xhttp"
 fi
 
-# vlessenc key generation/loading
-if [ -n "$VLESSENC_DECRYPTION" ] && [ -n "$VLESSENC_ENCRYPTION" ]; then
-  echo "Using VLESSENC from environment"
-elif [ -n "$STATE_VLESSENC_DECRYPTION" ] && [ -n "$STATE_VLESSENC_ENCRYPTION" ]; then
-  VLESSENC_DECRYPTION="$STATE_VLESSENC_DECRYPTION"
-  VLESSENC_ENCRYPTION="$STATE_VLESSENC_ENCRYPTION"
-  echo "Using VLESSENC from state"
-else
-  echo "Generating new VLESSENC keys..."
-  VLESSENC_OUTPUT=$(/xray vlessenc 2>/dev/null)
-  # Parse X25519 authentication (first decryption/encryption pair)
-  VLESSENC_DECRYPTION=$(echo "$VLESSENC_OUTPUT" | grep -m1 '"decryption"' | sed 's/.*": "\(.*\)"/\1/')
-  VLESSENC_ENCRYPTION=$(echo "$VLESSENC_OUTPUT" | grep -m1 '"encryption"' | sed 's/.*": "\(.*\)"/\1/')
-  if [ -z "$VLESSENC_DECRYPTION" ] || [ -z "$VLESSENC_ENCRYPTION" ]; then
-    echo "Warning: Failed to generate VLESSENC keys, falling back to decryption=none"
-    VLESSENC_DECRYPTION="none"
-    VLESSENC_ENCRYPTION="none"
-  else
-    echo "VLESSENC keys generated successfully"
-  fi
-fi
+
 
 SERVERNAMES_JSON_ARRAY="$(echo "[$(echo $SERVERNAMES | awk '{for(i=1;i<=NF;i++) printf "\"%s\",", $i}' | sed 's/,$//')]")"
 
@@ -258,10 +237,8 @@ jq \
   --arg xhttp_path "$XHTTP_PATH" \
   --arg private_key "$PRIVATEKEY" \
   --arg network "$NETWORK" \
-  --arg vlessenc_decryption "$VLESSENC_DECRYPTION" \
   --argjson serverNames "$SERVERNAMES_JSON_ARRAY" \
   '.inbounds[1].settings.clients[0].id = $uuid
-  | .inbounds[1].settings.decryption = $vlessenc_decryption
   | .inbounds[1].streamSettings.realitySettings.dest = $dest
   | .inbounds[1].streamSettings.xhttpSettings.path = $xhttp_path
   | .inbounds[1].streamSettings.realitySettings.serverNames = $serverNames
@@ -309,10 +286,8 @@ jq -n \
   --arg network "$NETWORK" \
   --arg external_port "$EXTERNAL_PORT" \
   --arg xhttp_path "$XHTTP_PATH" \
-  --arg vlessenc_decryption "$VLESSENC_DECRYPTION" \
-  --arg vlessenc_encryption "$VLESSENC_ENCRYPTION" \
   --argjson servernames "$SERVERNAMES_JSON_ARRAY" \
-  '{uuid:$uuid, private_key:$private_key, public_key:$public_key, dest:$dest, servernames:$servernames, network:$network, external_port:$external_port, xhttp_path:$xhttp_path, vlessenc_decryption:$vlessenc_decryption, vlessenc_encryption:$vlessenc_encryption}' > "$STATE_FILE"
+  '{uuid:$uuid, private_key:$private_key, public_key:$public_key, dest:$dest, servernames:$servernames, network:$network, external_port:$external_port, xhttp_path:$xhttp_path}' > "$STATE_FILE"
 
 FIRST_SERVERNAME=$(echo $SERVERNAMES | awk '{print $1}')
 
@@ -338,16 +313,15 @@ echo "PRIVATEKEY: $DISPLAY_PRIVATEKEY" >> /config_info.txt
 echo "PUBLICKEY/PASSWORD: $DISPLAY_PUBLICKEY" >> /config_info.txt
 echo "NETWORK: $NETWORK" >> /config_info.txt
 echo "XHTTP_PATH: $XHTTP_PATH" >> /config_info.txt
-echo "VLESSENC_DECRYPTION: $VLESSENC_DECRYPTION" >> /config_info.txt
-echo "VLESSENC_ENCRYPTION: $VLESSENC_ENCRYPTION" >> /config_info.txt
+
 
 if [ "$IPV4" != "null" ]; then
-  SUB_IPV4="vless://$UUID@$IPV4:$EXTERNAL_PORT?encryption=$VLESSENC_ENCRYPTION&security=reality&type=$NETWORK&sni=$FIRST_SERVERNAME&fp=firefox&pbk=$PUBLICKEY&path=$XHTTP_PATH&mode=auto&flow=xtls-rprx-vision#${IPV4}-wulabing_docker_xhttp_reality"
+  SUB_IPV4="vless://$UUID@$IPV4:$EXTERNAL_PORT?encryption=none&security=reality&type=$NETWORK&sni=$FIRST_SERVERNAME&fp=firefox&pbk=$PUBLICKEY&path=$XHTTP_PATH&mode=auto#${IPV4}-wulabing_docker_xhttp_reality"
   echo "IPV4 订阅连接: $SUB_IPV4" >> /config_info.txt
   echo -e "IPV4 订阅二维码:\n$(echo "$SUB_IPV4" | qrencode -o - -t UTF8)" >> /config_info.txt
 fi
 if [ "$IPV6" != "null" ]; then
-  SUB_IPV6="vless://$UUID@$IPV6:$EXTERNAL_PORT?encryption=$VLESSENC_ENCRYPTION&security=reality&type=$NETWORK&sni=$FIRST_SERVERNAME&fp=firefox&pbk=$PUBLICKEY&path=$XHTTP_PATH&mode=auto&flow=xtls-rprx-vision#${IPV6}-wulabing_docker_xhttp_reality"
+  SUB_IPV6="vless://$UUID@$IPV6:$EXTERNAL_PORT?encryption=none&security=reality&type=$NETWORK&sni=$FIRST_SERVERNAME&fp=firefox&pbk=$PUBLICKEY&path=$XHTTP_PATH&mode=auto#${IPV6}-wulabing_docker_xhttp_reality"
   echo "IPV6 订阅连接: $SUB_IPV6" >> /config_info.txt
   echo -e "IPV6 订阅二维码:\n$(echo "$SUB_IPV6" | qrencode -o - -t UTF8)" >> /config_info.txt
 fi

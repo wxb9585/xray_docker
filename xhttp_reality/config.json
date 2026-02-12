@@ -100,11 +100,11 @@
       "settings": {
         "clients": [
           {
-            "flow": "xtls-rprx-vision",
-            "id": "xx"
+            "id": "xx",
+            "flow": ""
           }
         ],
-        "decryption": "xx",
+        "decryption": "none",
         "fallbacks": []
       },
       "streamSettings": {
